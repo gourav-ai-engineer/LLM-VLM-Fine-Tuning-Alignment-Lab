@@ -1,228 +1,190 @@
-# TRL - Transformers Reinforcement Learning
+# LoRA: Low-Rank Adaptation of Large Language Models
 
-<div style="text-align: center">
-    <picture>
-        <source media="(prefers-color-scheme: light)" srcset="https://huggingface.co/datasets/trl-lib/documentation-images/resolve/main/trl_banner_light.png">
-        <img src="https://huggingface.co/datasets/trl-lib/documentation-images/resolve/main/trl_banner_dark.png" alt="TRL Banner">
-    </picture>
-</div>
+This repo contains the source code of the Python package `loralib` and several examples of how to integrate it with PyTorch models, such as those in Hugging Face.
+We only support PyTorch for now.
+See our paper for a detailed description of LoRA.
 
-<hr> <br>
+**LoRA: Low-Rank Adaptation of Large Language Models** <br>
+*Edward J. Hu\*, Yelong Shen\*, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, Weizhu Chen* <br>
+Paper: https://arxiv.org/abs/2106.09685 <br>
+Video explainer: https://www.youtube.com/watch?v=DhRoTONcyZE <br>
 
-<h3 align="center">
-    <p>A comprehensive library to post-train foundation models</p>
-</h3>
+*Update 2/2023: LoRA is now supported by the [State-of-the-art Parameter-Efficient Fine-Tuning (PEFT)](https://github.com/huggingface/peft) library by Hugging Face.*
 
-<p align="center">
-    <a href="https://github.com/huggingface/trl/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/huggingface/trl.svg?color=blue"></a>
-    <a href="https://huggingface.co/docs/trl/index"><img alt="Documentation" src="https://img.shields.io/website?label=documentation&url=https%3A%2F%2Fhuggingface.co%2Fdocs%2Ftrl%2Findex&down_color=red&down_message=offline&up_color=blue&up_message=online"></a>
-    <a href="https://github.com/huggingface/trl/releases"><img alt="GitHub release" src="https://img.shields.io/github/release/huggingface/trl.svg"></a>
-    <a href="https://huggingface.co/trl-lib"><img alt="Hugging Face Hub" src="https://img.shields.io/badge/🤗%20Hub-trl--lib-yellow"></a>
-</p>
+LoRA reduces the number of trainable parameters by learning pairs of rank-decompostion matrices while freezing the original weights.
+This vastly reduces the storage requirement for large language models adapted to specific tasks and enables efficient task-switching during deployment all without introducing inference latency.
+LoRA also outperforms several other adaptation methods including adapter, prefix-tuning, and fine-tuning.
 
-## 🎉 What's New
+We obtain result comparable or superior to full finetuning on the GLUE benchmark using [RoBERTa (Liu et al., 2019)](https://arxiv.org/abs/1907.11692) base and large and [DeBERTa (He et al., 2020)](https://arxiv.org/abs/2006.03654) XXL 1.5B, while only training and storing a fraction of the parameters. Click the numbers below to download the RoBERTa and DeBERTa LoRA checkpoints.
 
-**📜 Training beyond 1M tokens:** A new [long context guide](https://huggingface.co/docs/trl/long_context_training) walks through the four things that break as sequences grow — the loss, the positions, the activations and the memory of a single GPU — and ends on an example that trains Qwen3-8B on million-token sequences on one 8-GPU node.
+|   |         | RoBERTa base <br> Fine-tune  |  RoBERTa base <br> LoRA  | DeBERTa XXL <br> Fine-tune | DeBERTa XXL <br> LoRA  |
+|---|-------------------------|----------------|--------------------------|-----------------|-----------------|
+|   | # of Trainable Params.  | 125M | 0.8M | 1.5B | 4.7M     |
+|   | MNLI (m-Acc/mm-Acc)     | <b>87.6</b> | [<b>87.5</b>±.3/86.9±.3](https://github.com/microsoft/LoRA/releases/download/RoBERTa-base/roberta_base_lora_mnli.bin) |91.7/<b>91.9</b>| [<b>91.9</b>±.1/<b>91.9</b>±.2](https://github.com/microsoft/LoRA/releases/download/DeBERTa/deberta_v2_xxlarge_lora_mnli.bin)       |
+|   | SST2 (Acc)              | 94.8 | [<b>95.1</b>±.2](https://github.com/microsoft/LoRA/releases/download/RoBERTa-base/roberta_base_lora_sst2.bin) | <b>97.2</b>    | [96.9±.2](https://github.com/microsoft/LoRA/releases/download/DeBERTa/deberta_v2_xxlarge_lora_sst2.bin)                    |
+|   | MRPC (Acc)              | <b>90.2</b> | [<b>89.7</b>±.7](https://github.com/microsoft/LoRA/releases/download/RoBERTa-base/roberta_base_lora_mrpc.bin) | 92.0           | [<b>92.6</b>±.6](https://github.com/microsoft/LoRA/releases/download/DeBERTa/deberta_v2_xxlarge_lora_mrpc.bin)             |
+|   | CoLA (Matthew's Corr)   | <b>63.6</b> | [<b>63.4</b>±1.2](https://github.com/microsoft/LoRA/releases/download/RoBERTa-base/roberta_base_lora_cola.bin) | <b>72.0</b>    | [<b>72.4</b>±1.1](https://github.com/microsoft/LoRA/releases/download/DeBERTa/deberta_v2_xxlarge_lora_cola.bin)           |
+|   | QNLI (Acc)              | 92.8 | [<b>93.3</b>±.3](https://github.com/microsoft/LoRA/releases/download/RoBERTa-base/roberta_base_lora_qnli.bin) | <b>96.0</b>    | [<b>96.0</b>±.1](https://github.com/microsoft/LoRA/releases/download/DeBERTa/deberta_v2_xxlarge_lora_qnli.bin)            |
+|   | QQP (Acc)               | <b>91.9</b> | [90.8±.1](https://github.com/microsoft/LoRA/releases/download/RoBERTa-base/roberta_base_lora_qqp.bin) | 92.7           | [<b>92.9</b>±.1](https://github.com/microsoft/LoRA/releases/download/DeBERTa/deberta_v2_xxlarge_lora_qqp.bin)           |
+|   | RTE (Acc)               | 78.7 | [<b>86.6</b>±.7](https://github.com/microsoft/LoRA/releases/download/RoBERTa-base/roberta_base_lora_rte.bin) | 93.9           | [<b>94.9</b>±.4](https://github.com/microsoft/LoRA/releases/download/DeBERTa/deberta_v2_xxlarge_lora_rte.bin)           |
+|   | STSB (Pearson/Spearman Corr) | 91.2 | [<b>91.5</b>±.2/<b>91.3</b>±.2](https://github.com/microsoft/LoRA/releases/download/RoBERTa-base/roberta_base_lora_stsb.bin) |<b>92.9</b>/92.6| [<b>93.0</b>±.2/<b>92.9</b>±.3](https://github.com/microsoft/LoRA/releases/download/DeBERTa/deberta_v2_xxlarge_lora_stsb.bin)      |
+|   | Average  | 86.40 | <b>87.24</b> | 91.06 | <b>91.32</b> |
 
-## Overview
+<i>Note: You still need the original pre-trained checkpoint from [Hugging Face](https://huggingface.co/) to use the LoRA checkpoints.</i>
 
-TRL is a cutting-edge library designed for post-training foundation models using advanced techniques like Supervised Fine-Tuning (SFT), Group Relative Policy Optimization (GRPO), and Direct Preference Optimization (DPO). Built on top of the [🤗 Transformers](https://github.com/huggingface/transformers) ecosystem, TRL supports a variety of model architectures and modalities, and can be scaled-up across various hardware setups.
+Fine-tuning numbers are taken from [Liu et al. (2019)](https://arxiv.org/abs/1907.11692) and [He et al. (2020)](https://arxiv.org/abs/2006.03654).  We include confidence intervals on results from our experiments. Please follow the instructions in `examples/NLU/` to reproduce our results.
 
-## Highlights
+On GPT-2, LoRA compares favorably to both full finetuning and other efficient tuning methods, such as [adapter (Houlsby et al., 2019)](https://arxiv.org/abs/1902.00751) and [prefix tuning (Li and Liang, 2021)](https://arxiv.org/abs/2101.00190). We evaluated on E2E NLG Challenge, DART, and WebNLG:
 
-- **Trainers**: Various fine-tuning methods are easily accessible via trainers like [`SFTTrainer`](https://huggingface.co/docs/trl/sft_trainer), [`GRPOTrainer`](https://huggingface.co/docs/trl/grpo_trainer), [`DPOTrainer`](https://huggingface.co/docs/trl/dpo_trainer), [`KTOTrainer`](https://huggingface.co/docs/trl/kto_trainer) and more.
+|   | Method              | # of Trainable Params | E2E (BLEU)   | DART (BLEU)  | WebNLG (BLEU-U/S/A)            |
+|---|---------------------|-----------------------|--------------|--------------|--------------------------------|
+|   | GPT-2 M (Fine-Tune) | 354.92M               | 68.2         | 46.0         | 30.4/<b>63.2</b>/47.6          |
+|   | GPT-2 M (Adapter)   | 0.37M                 | 66.3         | 42.4         | 45.1/54.5/50.2                 |
+|   | GPT-2 M (Prefix)    | 0.35M                 | 69.7         | 45.7         | 44.1/63.1/54.4                 |
+|   | GPT-2 M (LoRA)      | 0.35M                 |<b>70.4</b>±.1|<b>47.1</b>±.2| <b>46.7</b>±.4/62.1±.2/<b>55.3</b>±.2 |
+|   | GPT-2 L (Fine-Tune) | 774.03M               | 68.5         | 46.5         | 41.7/<b>64.6</b>/54.2          |
+|   | GPT-2 L (Adapter)   | 0.88M                 | 69.1±.1      | 45.7±.1      | <b>49.8</b>±.0/61.1±.0/56.0±.0 |
+|   | GPT-2 L (Prefix)    | 0.77M                 | 70.3         | 46.5         | 47.0/64.2/56.4                 |
+|   | GPT-2 L (LoRA)      | 0.77M                 |<b>70.4</b>±.1|<b>47.5</b>±.1| 48.4±.3/<b>64.0</b>±.3/<b>57.0</b>±.1 |
 
-- **Efficient and scalable**:
-  - Leverages [🤗 Accelerate](https://github.com/huggingface/accelerate) to scale from single GPU to multi-node clusters using methods like [DDP](https://pytorch.org/tutorials/intermediate/ddp_tutorial.html) and [DeepSpeed](https://github.com/deepspeedai/DeepSpeed).
-  - Full integration with [🤗 PEFT](https://github.com/huggingface/peft) enables training on large models with modest hardware via quantization and LoRA/QLoRA.
-  - Integrates [🦥 Unsloth](https://github.com/unslothai/unsloth) for accelerating training using optimized kernels.
+Non-LoRA baselines, except for adapter on GPT-2 large, are taken from [Li and Liang (2021)](https://arxiv.org/abs/2101.00190). We include confidence intervals on results from our experiments.
 
-- **Command Line Interface (CLI)**: A simple interface lets you fine-tune with models without needing to write code.
+Download the GPT-2 LoRA checkpoints:
+ * [GPT-2 Medium E2E](https://github.com/microsoft/LoRA/releases/download/GPT-2/gpt2_md_lora_e2e.pt) (1.5 MB)
+ * [GPT-2 Medium DART](https://github.com/microsoft/LoRA/releases/download/GPT-2/gpt2_md_lora_dart.pt) (1.5 MB)
+ * [GPT-2 Medium WebNLG](https://github.com/microsoft/LoRA/releases/download/GPT-2/gpt2_md_lora_webnlg.pt) (1.5 MB)
+ * [GPT-2 Large E2E](https://github.com/microsoft/LoRA/releases/download/GPT-2/gpt2_lg_lora_e2e.pt) (2.3 MB)
+ * [GPT-2 Large DART](https://github.com/microsoft/LoRA/releases/download/GPT-2/gpt2_lg_lora_dart.pt) (2.3 MB)
+ * [GPT-2 Large WebNLG](https://github.com/microsoft/LoRA/releases/download/GPT-2/gpt2_lg_lora_webnlg.pt) (2.3 MB)
 
-## Installation
+Please follow the instructions in `examples/NLG/` to reproduce our result.
+## Repository Overview
 
-### Python Package
+<i>(The initial release of this repo has been archived in the branch "snapshot-9-15-2021")</i>
 
-Install the library using `pip`:
+There are several directories in this repo:
+* [loralib/](loralib) contains the source code for the package `loralib`, which needs to be installed to run the examples we provide;
+* [examples/NLG/](examples/NLG) contains an example implementation of LoRA in GPT-2 using our package, which can be used to reproduce the result in our paper;
+* [examples/NLU/](examples/NLU) contains an example implementation of LoRA in RoBERTa and DeBERTa using our package, which produces competitive results on the GLUE benchmark;
+* See how we use `loralib` in [GPT-2](examples/NLG/src/model.py), [RoBERTa](examples/NLU/src/transformers/models/roberta/modeling_roberta.py), and [DeBERTa v2](examples/NLU/src/transformers/models/deberta_v2/modeling_deberta_v2.py)
 
-```bash
-pip install trl
-```
+## Quickstart
 
-### From source
+ 1. Installing `loralib` is simply
+ ```bash
+ pip install loralib
+ # Alternatively
+ # pip install git+https://github.com/microsoft/LoRA
+ ```
 
-If you want to use the latest features before an official release, you can install TRL from source:
+ 2. You can choose to adapt some layers by replacing them with counterparts implemented in `loralib`. We only support `nn.Linear`, `nn.Embedding`, and `nn.Conv2d` for now. We also support a `MergedLinear` for cases where a single `nn.Linear` represents more than one layers, such as in some implementations of the attention `qkv` projection (see Additional Notes for more).
+ ```python
+ # ===== Before =====
+ # layer = nn.Linear(in_features, out_features)
 
-```bash
-pip install git+https://github.com/huggingface/trl.git
-```
+ # ===== After ======
+ import loralib as lora
+ # Add a pair of low-rank adaptation matrices with rank r=16
+ layer = lora.Linear(in_features, out_features, r=16)
+ ```
 
-### Repository
+ 3. Before the training loop begins, mark only LoRA parameters as trainable.
+ ```python
+ import loralib as lora
+ model = BigModel()
+ # This sets requires_grad to False for all parameters without the string "lora_" in their names
+ lora.mark_only_lora_as_trainable(model)
+ # Training loop
+ for batch in dataloader:
+    ...
+ ```
+ 4. When saving a checkpoint, generate a `state_dict` that only contains LoRA parameters.
+ ```python
+ # ===== Before =====
+ # torch.save(model.state_dict(), checkpoint_path)
+ # ===== After =====
+ torch.save(lora.lora_state_dict(model), checkpoint_path)
+ ```
+ 5. When loading a checkpoint using `load_state_dict`, be sure to set `strict=False`.
+ ```python
+ # Load the pretrained checkpoint first
+ model.load_state_dict(torch.load('ckpt_pretrained.pt'), strict=False)
+ # Then load the LoRA checkpoint
+ model.load_state_dict(torch.load('ckpt_lora.pt'), strict=False)
+ ```
 
-If you want to use the examples you can clone the repository with the following command:
+#### Now training can proceed as usual.
 
-```bash
-git clone https://github.com/huggingface/trl.git
-```
+## Additional Notes
 
-## Quick Start
+1. While we focus on a simple yet effect setup, namely adapting only the `q` and `v` projection in a Transformer, in our examples, LoRA can be apply to any subsets of pre-trained weights. We encourage you to explore different configurations, such as adapting the embedding layer by replacing `nn.Embedding` with `lora.Embedding` and/or adapting the MLP layers. It's very likely that the optimal configuration varies for different model architectures and tasks.
 
-For more flexibility and control over training, TRL provides dedicated trainer classes to post-train language models or PEFT adapters on a custom dataset. Each trainer in TRL is a light wrapper around the 🤗 Transformers trainer and natively supports distributed training methods like DDP, DeepSpeed ZeRO, and FSDP.
-
-### `SFTTrainer`
-
-Here is a basic example of how to use the [`SFTTrainer`](https://huggingface.co/docs/trl/sft_trainer):
-
+2. Some Transformer implementation uses a single `nn.Linear` for the projection matrices for query, key, and value. If one wishes to constrain the rank of the updates to the individual matrices, one has to either break it up into three separate matrices or use `lora.MergedLinear`. Make sure to modify the checkpoint accordingly if you choose to break up the layer.
 ```python
-from trl import SFTTrainer
-from datasets import load_dataset
-
-dataset = load_dataset("trl-lib/Capybara", split="train")
-
-trainer = SFTTrainer(
-    model="Qwen/Qwen2.5-0.5B",
-    train_dataset=dataset,
-)
-trainer.train()
+# ===== Before =====
+# qkv_proj = nn.Linear(d_model, 3*d_model)
+# ===== After =====
+# Break it up (remember to modify the pretrained checkpoint accordingly)
+q_proj = lora.Linear(d_model, d_model, r=8)
+k_proj = nn.Linear(d_model, d_model)
+v_proj = lora.Linear(d_model, d_model, r=8)
+# Alternatively, use lora.MergedLinear (recommended)
+qkv_proj = lora.MergedLinear(d_model, 3*d_model, r=8, enable_lora=[True, False, True])
 ```
-
-### `GRPOTrainer`
-
-[`GRPOTrainer`](https://huggingface.co/docs/trl/grpo_trainer) implements the [Group Relative Policy Optimization (GRPO) algorithm](https://huggingface.co/papers/2402.03300) that is more memory-efficient than PPO and was used to train [Deepseek AI's R1](https://huggingface.co/deepseek-ai/DeepSeek-R1).
-
+3. Training bias vectors in tandem with LoRA might be a cost-efficient way to squeeze out extra task performance (if you tune the learning rate carefully). While we did not study its effect thoroughly in our paper, we make it easy to try in `lora`. You can mark some biases as trainable by passing "all" or "lora_only" to `bias=` when calling `mark_only_lora_as_trainable`. Remember to pass the corresponding `bias=` argument to `lora_state_dict` when saving a checkpoint.
 ```python
-from datasets import load_dataset
-from trl import GRPOTrainer
-from trl.rewards import accuracy_reward
-
-dataset = load_dataset("trl-lib/DeepMath-103K", split="train")
-
-trainer = GRPOTrainer(
-    model="Qwen/Qwen2.5-0.5B-Instruct",
-    reward_funcs=accuracy_reward,
-    train_dataset=dataset,
-)
-trainer.train()
+# ===== Before =====
+# lora.mark_only_lora_as_trainable(model) # Not training any bias vectors
+# ===== After =====
+# Training all bias vectors associated with modules we apply LoRA to 
+lora.mark_only_lora_as_trainable(model, bias='lora_only')
+# Alternatively, we can train *all* bias vectors in the model, including LayerNorm biases
+lora.mark_only_lora_as_trainable(model, bias='all')
+# When saving a checkpoint, use the same bias= ('all' or 'lora_only')
+torch.save(lora.lora_state_dict(model, bias='all'), checkpoint_path)
 ```
+4. Calling `model.eval()` will trigger the merging of LoRA parameters with the corresponding pretrained ones, which eliminates additional latency for subsequent forward passes. Calling `model.train()` again will undo the merge. This can be disabled by passing `merge_weights=False` to LoRA layers.
 
-> [!NOTE]
-> For reasoning models, use the `reasoning_accuracy_reward()` function for better results.
+## Contact
+Please contact us or post an issue if you have any questions.
 
-### `DPOTrainer`
+For questions related to the package `loralib`:
+* Edward Hu (edward@edwardjhu.com)
+* Phillip Wallis (phwallis@microsoft.com)
+* Weizhu Chen (wzchen@microsoft.com)
 
-[`DPOTrainer`](https://huggingface.co/docs/trl/dpo_trainer) implements the popular [Direct Preference Optimization (DPO) algorithm](https://huggingface.co/papers/2305.18290) that was used to post-train [Llama 3](https://huggingface.co/papers/2407.21783) and many other models. Here is a basic example of how to use the `DPOTrainer`:
+The GPT-2 example:
+* Phillip Wallis (phwallis@microsoft.com)
+* Yelong Shen (yeshe@microsoft.com)
 
-```python
-from datasets import load_dataset
-from trl import DPOTrainer
+The RoBERTa/DeBERTa example:
+* Lu Wang (luw@microsoft.com)
 
-dataset = load_dataset("trl-lib/ultrafeedback_binarized", split="train")
-
-trainer = DPOTrainer(
-    model="Qwen/Qwen3-0.6B",
-    train_dataset=dataset,
-)
-trainer.train()
-```
-
-### `KTOTrainer`
-
-[`KTOTrainer`](https://huggingface.co/docs/trl/kto_trainer) implements the [Kahneman-Tversky Optimization (KTO) algorithm](https://huggingface.co/papers/2402.01306), which aligns models from simple binary (desirable / undesirable) feedback rather than paired preferences. Here is a basic example of how to use the `KTOTrainer`:
-
-```python
-from datasets import load_dataset
-from trl import KTOTrainer
-
-dataset = load_dataset("trl-lib/kto-mix-14k", split="train")
-
-trainer = KTOTrainer(
-    model="Qwen/Qwen3-0.6B",
-    train_dataset=dataset,
-)
-trainer.train()
-```
-
-### `RewardTrainer`
-
-Here is a basic example of how to use the [`RewardTrainer`](https://huggingface.co/docs/trl/reward_trainer):
-
-```python
-from trl import RewardTrainer
-from datasets import load_dataset
-
-dataset = load_dataset("trl-lib/ultrafeedback_binarized", split="train")
-
-trainer = RewardTrainer(
-    model="Qwen/Qwen2.5-0.5B-Instruct",
-    train_dataset=dataset,
-)
-trainer.train()
-```
-
-## Command Line Interface (CLI)
-
-You can use the TRL Command Line Interface (CLI) to quickly get started with post-training methods like Supervised Fine-Tuning (SFT) or Direct Preference Optimization (DPO):
-
-**SFT:**
-
-```bash
-trl sft --model_name_or_path Qwen/Qwen2.5-0.5B \
-    --dataset_name trl-lib/Capybara \
-    --output_dir Qwen2.5-0.5B-SFT
-```
-
-**DPO:**
-
-```bash
-trl dpo --model_name_or_path Qwen/Qwen2.5-0.5B-Instruct \
-    --dataset_name argilla/Capybara-Preferences \
-    --output_dir Qwen2.5-0.5B-DPO
-```
-
-**KTO:**
-
-```bash
-trl kto --model_name_or_path Qwen/Qwen2.5-0.5B-Instruct \
-    --dataset_name trl-lib/kto-mix-14k \
-    --output_dir Qwen2.5-0.5B-KTO
-```
-
-Read more about CLI in the [relevant documentation section](https://huggingface.co/docs/trl/clis) or use `--help` for more details.
-
-## Development
-
-If you want to contribute to `trl` or customize it to your needs make sure to read the [contribution guide](https://github.com/huggingface/trl/blob/main/CONTRIBUTING.md) and make sure you make a dev install:
-
-```bash
-git clone https://github.com/huggingface/trl.git
-cd trl/
-pip install -e .[dev]
-```
-
-## Experimental
-
-A minimal incubation area is available under `trl.experimental` for unstable / fast-evolving features. Anything there may change or be removed in any release without notice.
-
-Example:
-
-```python
-from trl.experimental.new_trainer import NewTrainer
-```
-
-Read more in the [Experimental docs](https://huggingface.co/docs/trl/experimental_overview).
+## Acknowledgements
+We thank in alphabetical order Jianfeng Gao, Jade Huang, Jiayuan Huang, Lisa Xiang Li, Xiaodong Liu, Yabin Liu, Benjamin Van Durme, Luis Vargas, Haoran Wei, Peter Welinder, and Greg Yang for providing valuable feedback.
 
 ## Citation
-
-```bibtex
-@software{vonwerra2020trl,
-  title   = {{TRL: Transformers Reinforcement Learning}},
-  author  = {von Werra, Leandro and Belkada, Younes and Tunstall, Lewis and Beeching, Edward and Thrush, Tristan and Lambert, Nathan and Huang, Shengyi and Rasul, Kashif and Gallouédec, Quentin},
-  license = {Apache-2.0},
-  url     = {https://github.com/huggingface/trl},
-  year    = {2020}
+```BibTeX
+@inproceedings{
+hu2022lora,
+title={Lo{RA}: Low-Rank Adaptation of Large Language Models},
+author={Edward J Hu and Yelong Shen and Phillip Wallis and Zeyuan Allen-Zhu and Yuanzhi Li and Shean Wang and Lu Wang and Weizhu Chen},
+booktitle={International Conference on Learning Representations},
+year={2022},
+url={https://openreview.net/forum?id=nZeVKeeFYf9}
 }
 ```
 
-## License
+## Contributing
 
-This repository's source code is available under the [Apache-2.0 License](LICENSE).
+This project welcomes contributions and suggestions.  Most contributions require you to agree to a
+Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
+the rights to use your contribution. For details, visit https://cla.opensource.microsoft.com.
+
+When you submit a pull request, a CLA bot will automatically determine whether you need to provide
+a CLA and decorate the PR appropriately (e.g., status check, comment). Simply follow the instructions
+provided by the bot. You will only need to do this once across all repos using our CLA.
+
+This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
+For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
+contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
