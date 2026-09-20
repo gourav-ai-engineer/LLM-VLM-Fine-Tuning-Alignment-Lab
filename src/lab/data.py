@@ -30,10 +30,11 @@ def validate_instruction_rows(rows: Iterable[Mapping[str, object]]) -> DatasetRe
         if not response:
             missing_response += 1
         key = (prompt, response)
-        if key in seen:
+        is_duplicate = key in seen
+        if is_duplicate:
             duplicates += 1
         seen.add(key)
-        if prompt and response and key not in set():
+        if prompt and response and not is_duplicate:
             valid += 1
 
     return DatasetReport(total, valid, duplicates, missing_prompt, missing_response)
